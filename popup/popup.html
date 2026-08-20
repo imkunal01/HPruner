@@ -3,165 +3,175 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>HPruner Dashboard</title>
+  <title>HPruner</title>
   <link rel="stylesheet" href="popup.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
-  <div class="popup-container">
-    <!-- Header -->
-    <header class="popup-header">
+  <div class="app-window">
+    <!-- Top Navigation Bar -->
+    <header class="app-header">
       <div class="brand">
-        <div class="logo-badge">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+        <div class="brand-monogram">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <polyline points="4 17 10 11 4 5"></polyline>
+            <line x1="12" y1="19" x2="20" y2="19"></line>
           </svg>
         </div>
-        <div class="brand-text">
-          <h1>HPruner</h1>
-          <span class="version">v1.0.0 • DOM Virtualizer</span>
+        <div class="brand-meta">
+          <span class="brand-title">HPruner</span>
+          <span class="brand-sub">DOM VIRTUALIZER</span>
         </div>
       </div>
-      <div class="status-pill" id="global-status-pill">
-        <span class="status-dot"></span>
-        <span class="status-text">Active</span>
+      
+      <div class="header-status" id="global-status-pill">
+        <span class="status-beacon"></span>
+        <span class="status-label">ACTIVE</span>
       </div>
     </header>
 
-    <!-- Metrics Hero Section -->
-    <section class="metrics-hero">
-      <div class="metric-card main-metric">
-        <div class="metric-header">
-          <span class="metric-label">DOM Nodes Pruned</span>
-          <span class="metric-sub" id="pruned-pct">0%</span>
-        </div>
-        <div class="metric-values">
-          <span class="metric-num primary" id="stat-rendered">0</span>
-          <span class="metric-divider">/</span>
-          <span class="metric-num" id="stat-total">0</span>
-          <span class="metric-unit">turns mounted</span>
-        </div>
-        <div class="progress-bar-container">
-          <div class="progress-bar-fill" id="stat-progress-bar" style="width: 0%;"></div>
-        </div>
-      </div>
-
-      <div class="metrics-grid">
-        <div class="metric-card small-card">
-          <span class="metric-label">RAM Saved</span>
-          <div class="metric-val-wrap">
-            <span class="metric-num highlight" id="stat-ram">0.0</span>
-            <span class="metric-unit">MB</span>
+    <!-- Main Telemetry Dashboard -->
+    <section class="telemetry-deck">
+      <div class="telemetry-top">
+        <div class="telemetry-stat">
+          <span class="stat-caption">MOUNTED / TOTAL TURNS</span>
+          <div class="stat-figure">
+            <span class="val-active" id="stat-rendered">0</span>
+            <span class="val-sep">/</span>
+            <span class="val-total" id="stat-total">0</span>
           </div>
         </div>
-        <div class="metric-card small-card">
-          <span class="metric-label">Scroll FPS</span>
-          <div class="metric-val-wrap">
-            <span class="metric-num fps-good" id="stat-fps">60</span>
-            <span class="metric-unit">FPS</span>
+        <div class="telemetry-badge" id="pruned-pct">0% PRUNED</div>
+      </div>
+
+      <!-- Meter Track -->
+      <div class="meter-track">
+        <div class="meter-fill" id="stat-progress-bar" style="width: 0%;"></div>
+      </div>
+
+      <!-- Compact Specs Strip -->
+      <div class="specs-strip">
+        <div class="spec-item">
+          <span class="spec-label">RAM SAVED</span>
+          <span class="spec-value mono" id="stat-ram">0.0 MB</span>
+        </div>
+        <div class="spec-divider"></div>
+        <div class="spec-item">
+          <span class="spec-label">FPS ENGINE</span>
+          <span class="spec-value mono highlight" id="stat-fps">60 FPS</span>
+        </div>
+        <div class="spec-divider"></div>
+        <div class="spec-item">
+          <span class="spec-label">STATE</span>
+          <span class="spec-value mono" id="stat-engine-state">HYDRATED</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tactile Mode Segmented Switcher -->
+    <section class="section-group">
+      <div class="section-label-bar">
+        <span class="section-title">PROCESSING STRATEGY</span>
+        <span class="section-hint" id="mode-desc-hint">Slow progressive hydration • Zero lag</span>
+      </div>
+
+      <div class="segmented-control" id="mode-selector">
+        <button class="segment-btn active" data-mode="progressive" title="Progressive lazy reader">
+          <span>Reader</span>
+        </button>
+        <button class="segment-btn" data-mode="balanced" title="Balanced 550px overscan">
+          <span>Balanced</span>
+        </button>
+        <button class="segment-btn" data-mode="ultra" title="Ultra aggressive 250px buffer">
+          <span>Ultra</span>
+        </button>
+        <button class="segment-btn" data-mode="eco" title="CSS Hardware containment">
+          <span>Eco</span>
+        </button>
+        <button class="segment-btn" data-mode="off" title="Pass-through full DOM">
+          <span>Off</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Hardware Controls & Toggles -->
+    <section class="section-group">
+      <div class="section-label-bar">
+        <span class="section-title">ENGINE SAFEGUARDS</span>
+      </div>
+
+      <div class="controls-card">
+        <div class="control-row">
+          <div class="control-meta">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            <div>
+              <div class="control-name">Stream Shield</div>
+              <div class="control-desc">Never prune live generating assistant tokens</div>
+            </div>
           </div>
+          <label class="switch-toggle">
+            <input type="checkbox" id="chk-streaming" checked>
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+
+        <div class="control-row">
+          <div class="control-meta">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/></svg>
+            <div>
+              <div class="control-name">Floating HUD</div>
+              <div class="control-desc">Compact in-page telemetry pill on chat page</div>
+            </div>
+          </div>
+          <label class="switch-toggle">
+            <input type="checkbox" id="chk-hud" checked>
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+
+        <div class="control-row">
+          <div class="control-meta">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/><polyline points="6 9 12 15 18 9"/></svg>
+            <div>
+              <div class="control-name">Scroll Anchor Guard</div>
+              <div class="control-desc">Dynamic upward compensation to eliminate jitter</div>
+            </div>
+          </div>
+          <label class="switch-toggle">
+            <input type="checkbox" id="chk-scroll-fix" checked>
+            <span class="toggle-slider"></span>
+          </label>
         </div>
       </div>
     </section>
 
-    <!-- Mode Selector -->
-    <section class="config-section">
-      <h2 class="section-title">Pruning Engine Mode</h2>
-      <div class="mode-selector" id="mode-selector">
-        <button class="mode-btn active featured-mode" data-mode="progressive">
-          <span class="mode-name">📖 Smooth Reader</span>
-          <span class="mode-desc">Slow progressive hydration • Zero lag</span>
-        </button>
-        <button class="mode-btn" data-mode="balanced">
-          <span class="mode-name">🛡️ Balanced</span>
-          <span class="mode-desc">550px overscan buffer</span>
-        </button>
-        <button class="mode-btn" data-mode="ultra">
-          <span class="mode-name">⚡ Ultra</span>
-          <span class="mode-desc">250px buffer • Max RAM</span>
-        </button>
-        <button class="mode-btn" data-mode="eco">
-          <span class="mode-name">🍃 Eco</span>
-          <span class="mode-desc">CSS Containment</span>
-        </button>
-        <button class="mode-btn" data-mode="off">
-          <span class="mode-name">⏸️ Off</span>
-          <span class="mode-desc">Full DOM load</span>
-        </button>
-      </div>
-    </section>
-
-    <!-- Fine Tuning & Toggles -->
-    <section class="config-section">
-      <h2 class="section-title">Settings & Safeguards</h2>
-
-      <div class="toggle-row">
-        <div class="toggle-info">
-          <span class="toggle-title">Streaming Generation Guard</span>
-          <span class="toggle-desc">Never prune actively streaming responses</span>
-        </div>
-        <label class="switch">
-          <input type="checkbox" id="chk-streaming" checked>
-          <span class="slider"></span>
-        </label>
-      </div>
-
-      <div class="toggle-row">
-        <div class="toggle-info">
-          <span class="toggle-title">In-Page Floating HUD</span>
-          <span class="toggle-desc">Show live node/FPS pill on chat page</span>
-        </div>
-        <label class="switch">
-          <input type="checkbox" id="chk-hud" checked>
-          <span class="slider"></span>
-        </label>
-      </div>
-
-      <div class="toggle-row">
-        <div class="toggle-info">
-          <span class="toggle-title">Upward Scroll Jitter Fix</span>
-          <span class="toggle-desc">Synchronous scroll anchoring</span>
-        </div>
-        <label class="switch">
-          <input type="checkbox" id="chk-scroll-fix" checked>
-          <span class="slider"></span>
-        </label>
-      </div>
-    </section>
-
-    <!-- Fast Action Tools -->
-    <section class="actions-section">
-      <button class="action-btn action-primary" id="btn-open-search">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="11" cy="11" r="8"></circle>
-          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-        </svg>
-        <span>Search Thread (Ctrl+Shift+F)</span>
+    <!-- Command Actions -->
+    <section class="actions-group">
+      <button class="cmd-btn cmd-primary" id="btn-open-search">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <span class="cmd-text">Search Memory Index</span>
+        <kbd class="cmd-kbd">Ctrl+Shift+F</kbd>
       </button>
 
-      <div class="action-row">
-        <button class="action-btn action-secondary" id="btn-export-md" title="Export conversation to Markdown">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-            <polyline points="7 10 12 15 17 10"></polyline>
-            <line x1="12" y1="15" x2="12" y2="3"></line>
-          </svg>
-          <span>Export Markdown</span>
+      <div class="cmd-grid">
+        <button class="cmd-btn cmd-secondary" id="btn-export-md" title="Export Markdown history">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          <span>Export MD</span>
         </button>
 
-        <button class="action-btn action-secondary" id="btn-open-demo" title="Launch 10,000 message test harness">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10"></circle>
-            <polygon points="10 8 16 12 10 16 10 8"></polygon>
-          </svg>
-          <span>Test Harness</span>
+        <button class="cmd-btn cmd-secondary" id="btn-open-demo" title="Open 10,000 message test harness">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
+          <span>Benchmark</span>
         </button>
       </div>
     </section>
 
     <!-- Footer -->
-    <footer class="popup-footer">
-      <span>ChatGPT • Claude • Custom Chats</span>
-      <a href="#" id="btn-restore-all">Restore Full DOM</a>
+    <footer class="app-footer">
+      <span class="footer-note">ChatGPT • Claude • Web Chats</span>
+      <button class="link-btn" id="btn-restore-all">Restore Full DOM</button>
     </footer>
   </div>
 

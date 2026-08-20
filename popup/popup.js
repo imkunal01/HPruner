@@ -1,14 +1,16 @@
-// popup/popup.js - HPruner Popup Dashboard Logic
+// popup/popup.js - HPruner Minimalist Dashboard Controller
 document.addEventListener('DOMContentLoaded', async () => {
   const statRendered = document.getElementById('stat-rendered');
   const statTotal = document.getElementById('stat-total');
   const statRam = document.getElementById('stat-ram');
   const statFps = document.getElementById('stat-fps');
+  const statEngineState = document.getElementById('stat-engine-state');
   const prunedPct = document.getElementById('pruned-pct');
   const progressBar = document.getElementById('stat-progress-bar');
   const statusPill = document.getElementById('global-status-pill');
+  const modeDescHint = document.getElementById('mode-desc-hint');
 
-  const modeButtons = document.querySelectorAll('.mode-btn');
+  const segmentButtons = document.querySelectorAll('.segment-btn');
   const chkStreaming = document.getElementById('chk-streaming');
   const chkHud = document.getElementById('chk-hud');
   const chkScrollFix = document.getElementById('chk-scroll-fix');
@@ -17,6 +19,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   const btnExportMd = document.getElementById('btn-export-md');
   const btnOpenDemo = document.getElementById('btn-open-demo');
   const btnRestoreAll = document.getElementById('btn-restore-all');
+
+  const MODE_HINTS = {
+    progressive: 'Slow progressive hydration • Zero lag',
+    balanced: '550px overscan buffer • Fluid scrolling',
+    ultra: '250px aggressive buffer • Max memory cut',
+    eco: 'CSS Hardware containment • Native skip',
+    off: 'Pass-through • Full DOM rendering'
+  };
 
   let activeTabId = null;
   let currentSettings = {
@@ -47,7 +57,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
       chrome.tabs.sendMessage(activeTabId, { type: 'GET_STATS' }, (response) => {
         if (chrome.runtime.lastError || !response || !response.stats) {
-          // Tab is not a chat page or content script is not loaded
           renderFallbackStats();
           return;
         }
@@ -72,45 +81,51 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     statRendered.textContent = rendered;
     statTotal.textContent = total;
-    statRam.textContent = ram;
-    statFps.textContent = fps;
+    statRam.textContent = `${ram} MB`;
+    statFps.textContent = `${fps} FPS`;
 
     if (total > 0) {
       const pct = Math.round((pruned / total) * 100);
-      prunedPct.textContent = `${pct}% saved`;
+      prunedPct.textContent = `${pct}% PRUNED`;
       progressBar.style.width = `${pct}%`;
+      statEngineState.textContent = (stats.mode === 'progressive') ? 'STAGGERED' : 'OPTIMIZED';
     } else {
-      prunedPct.textContent = `0%`;
+      prunedPct.textContent = `0% PRUNED`;
       progressBar.style.width = `0%`;
+      statEngineState.textContent = 'READY';
     }
 
     if (fps >= 55) {
-      statFps.className = 'metric-num fps-good';
+      statFps.style.color = 'var(--emerald)';
     } else if (fps >= 40) {
-      statFps.className = 'metric-num highlight';
+      statFps.style.color = 'var(--amber)';
     } else {
-      statFps.className = 'metric-num';
-      statFps.style.color = '#ef4444';
+      statFps.style.color = 'var(--red)';
     }
 
     const isActive = stats.enabled && stats.mode !== 'off';
-    statusPill.className = `status-pill ${isActive ? '' : 'inactive'}`;
-    statusPill.querySelector('.status-text').textContent = isActive ? 'Active' : 'Disabled';
+    statusPill.className = `header-status ${isActive ? '' : 'inactive'}`;
+    statusPill.querySelector('.status-label').textContent = isActive ? 'ACTIVE' : 'OFF';
   }
 
   function renderFallbackStats() {
     statRendered.textContent = '-';
     statTotal.textContent = '-';
-    statRam.textContent = '0.0';
-    statFps.textContent = '60';
-    prunedPct.textContent = 'Idle';
+    statRam.textContent = '0.0 MB';
+    statFps.textContent = '60 FPS';
+    statEngineState.textContent = 'STANDBY';
+    prunedPct.textContent = '0% PRUNED';
     progressBar.style.width = '0%';
   }
 
   function applySettingsToUI(settings) {
-    modeButtons.forEach(btn => {
+    segmentButtons.forEach(btn => {
       btn.classList.toggle('active', btn.getAttribute('data-mode') === settings.mode);
     });
+
+    if (modeDescHint) {
+      modeDescHint.textContent = MODE_HINTS[settings.mode] || MODE_HINTS.progressive;
+    }
 
     chkStreaming.checked = Boolean(settings.safeStreamingGuard);
     chkHud.checked = Boolean(settings.showHud);
@@ -133,8 +148,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // Event Listeners for Modes
-  modeButtons.forEach(btn => {
+  // Segment Buttons Click
+  segmentButtons.forEach(btn => {
     btn.addEventListener('click', () => {
       const mode = btn.getAttribute('data-mode');
       const enabled = (mode !== 'off');
@@ -143,7 +158,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   });
 
-  // Toggles
+  // Safeguard Toggles
   chkStreaming.addEventListener('change', () => {
     updateOptions({ safeStreamingGuard: chkStreaming.checked });
   });
@@ -156,7 +171,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateOptions({ autoScrollFix: chkScrollFix.checked });
   });
 
-  // Actions
+  // Action Triggers
   btnOpenSearch.addEventListener('click', () => {
     if (activeTabId) {
       chrome.tabs.sendMessage(activeTabId, { type: 'TOGGLE_HPRUNER_SEARCH' });
@@ -197,7 +212,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  // Poll stats every 1 second while popup is open
   fetchLiveStats();
   const pollInterval = setInterval(fetchLiveStats, 1000);
   window.addEventListener('unload', () => clearInterval(pollInterval));
