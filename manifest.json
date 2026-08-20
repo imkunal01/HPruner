@@ -25,17 +25,24 @@
     "activeTab"
   ],
   "host_permissions": [
+    "*://*.chatgpt.com/*",
     "*://chatgpt.com/*",
+    "*://*.openai.com/*",
     "*://chat.openai.com/*",
+    "*://*.claude.ai/*",
     "*://claude.ai/*",
     "http://localhost/*",
-    "http://127.0.0.1/*"
+    "http://127.0.0.1/*",
+    "<all_urls>"
   ],
   "content_scripts": [
     {
       "matches": [
+        "*://*.chatgpt.com/*",
         "*://chatgpt.com/*",
+        "*://*.openai.com/*",
         "*://chat.openai.com/*",
+        "*://*.claude.ai/*",
         "*://claude.ai/*",
         "http://localhost/*",
         "http://127.0.0.1/*"

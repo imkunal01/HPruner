@@ -74,32 +74,34 @@
 
 /* 2. Floating In-Page HUD */
 .hpruner-hud {
-  position: fixed;
-  bottom: 24px;
-  right: 24px;
-  z-index: 999999;
-  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
-  user-select: none;
+  position: fixed !important;
+  bottom: 24px !important;
+  right: 24px !important;
+  z-index: 2147483647 !important;
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif !important;
+  user-select: none !important;
+  pointer-events: auto !important;
+  display: block !important;
 }
 
 .hpruner-hud.dragging {
-  cursor: grabbing;
-  opacity: 0.9;
+  cursor: grabbing !important;
+  opacity: 0.9 !important;
 }
 
 .hpruner-hud-inner {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 6px 10px;
-  background: rgba(11, 19, 38, 0.85);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border: 1px solid rgba(56, 189, 248, 0.2);
-  border-radius: 30px;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.6), 0 0 20px rgba(16, 185, 129, 0.12);
-  color: #f1f5f9;
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 6px 12px !important;
+  background: rgba(11, 19, 38, 0.92) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border: 1px solid rgba(56, 189, 248, 0.3) !important;
+  border-radius: 30px !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7), 0 0 20px rgba(16, 185, 129, 0.15) !important;
+  color: #f1f5f9 !important;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
 
 .hpruner-hud.minimized .hpruner-hud-stats,

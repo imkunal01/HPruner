@@ -89,7 +89,16 @@
       });
     }
 
-    console.log('[HPruner] Content orchestrator active.');
+    // Expose debug handle for DevTools console
+    window.__HPRUNER__ = {
+      virtualizer,
+      searchOverlay,
+      hud,
+      getStats: () => virtualizer.stats,
+      getTurns: () => virtualizer.turns
+    };
+
+    console.log('%c[HPruner] ⚡ Content orchestrator active. Type __HPRUNER__.getStats() to inspect.', 'color: #10b981;');
   }
 
   function exportThreadData(format) {

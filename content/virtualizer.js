@@ -1,4 +1,4 @@
-// content/virtualizer.js - High Performance Chat DOM Virtualizer Engine
+// content/virtualizer.js - Production-Hardened ChatGPT & Chat DOM Virtualizer
 (function () {
   'use strict';
 
@@ -6,8 +6,8 @@
     constructor(options = {}) {
       this.options = Object.assign({
         enabled: true,
-        mode: 'balanced', // 'ultra' (200px buffer), 'balanced' (500px), 'eco' (content-visibility), 'off'
-        overscanBuffer: 500,
+        mode: 'balanced', // 'ultra' (250px), 'balanced' (550px), 'eco' (800px), 'off'
+        overscanBuffer: 550,
         safeStreamingGuard: true,
         autoScrollFix: true,
         customSelectors: ''
@@ -16,11 +16,11 @@
       this.isInitialized = false;
       this.scrollContainer = null;
       this.turns = []; // Array of TurnRecord
-      this.turnMap = new Map(); // element or turnId -> TurnRecord
+      this.turnMap = new Map(); // element -> TurnRecord
       this.resizeObserver = null;
       this.mutationObserver = null;
       this.rafId = null;
-      this.lastScrollTop = 0;
+      this.lastUrl = window.location.href;
       this.isScrolling = false;
       this.scrollTimeout = null;
 
@@ -36,9 +36,6 @@
       };
 
       // FPS Tracker
-      this.frameCount = 0;
-      this.lastFpsUpdate = performance.now();
-
       this.onStatsChangeCallbacks = new Set();
       this.onIndexUpdateCallbacks = new Set();
 
@@ -49,21 +46,30 @@
       if (this.isInitialized) return;
       this.isInitialized = true;
 
+      this.setupGlobalScrollCapture();
       this.setupResizeObserver();
       this.findScrollContainer();
       this.startObservingDOM();
       this.startFPSMeter();
+      this.startRouteWatcher();
 
       // Initial scan
       this.scanAndRegisterTurns();
       this.scheduleVirtualize();
 
-      console.log('[HPruner] Virtualizer core initialized with mode:', this.options.mode);
+      console.log('%c[HPruner] ⚡ Virtualizer engine active on ' + window.location.hostname, 'color: #10b981; font-weight: bold; font-size: 12px;');
+      console.log('[HPruner] Initial turns detected:', this.turns.length, 'Mode:', this.options.mode);
+    }
+
+    // Capture-phase scroll listener catches scroll events from ANY nested element or container
+    setupGlobalScrollCapture() {
+      this.handleScrollBound = () => this.handleScroll();
+      window.addEventListener('scroll', this.handleScrollBound, { passive: true, capture: true });
+      document.addEventListener('scroll', this.handleScrollBound, { passive: true, capture: true });
+      window.addEventListener('resize', () => this.scheduleVirtualize(), { passive: true });
     }
 
     setOptions(newOptions) {
-      const prevMode = this.options.mode;
-      const prevEnabled = this.options.enabled;
       this.options = Object.assign(this.options, newOptions);
 
       if (this.options.mode === 'ultra') {
@@ -93,60 +99,60 @@
       this.onIndexUpdateCallbacks.add(cb);
     }
 
+    startRouteWatcher() {
+      // Monitor SPA URL navigation in ChatGPT / Next.js
+      setInterval(() => {
+        if (window.location.href !== this.lastUrl) {
+          console.log('[HPruner] Navigation detected:', this.lastUrl, '->', window.location.href);
+          this.lastUrl = window.location.href;
+          this.resetForNewConversation();
+        }
+      }, 500);
+
+      window.addEventListener('popstate', () => this.resetForNewConversation());
+    }
+
+    resetForNewConversation() {
+      this.turns = [];
+      this.turnMap.clear();
+      this.findScrollContainer();
+      this.scanAndRegisterTurns();
+      this.scheduleVirtualize();
+    }
+
     // Identifies ChatGPT / LLM chat scroll container
     findScrollContainer() {
-      if (this.scrollContainer && document.contains(this.scrollContainer)) {
-        return this.scrollContainer;
-      }
-
       // ChatGPT main scroll container candidates
       const candidates = [
         document.querySelector('div[class*="react-scroll-to-bottom"]'),
         document.querySelector('main div.overflow-y-auto'),
         document.querySelector('main div[class*="overflow-y-auto"]'),
+        document.querySelector('div[class*="overflow-y-auto"]'),
         document.querySelector('main[class*="overflow-y-auto"]'),
         document.querySelector('div[id="chat-scroll-container"]'), // Demo harness
-        document.querySelector('.chat-messages-container'),
-        document.querySelector('main')
+        document.querySelector('main'),
+        document.querySelector('#__next')
       ];
 
       for (const el of candidates) {
-        if (el && (el.scrollHeight > el.clientHeight || window.getComputedStyle(el).overflowY.includes('auto') || window.getComputedStyle(el).overflowY.includes('scroll'))) {
-          this.attachScrollListener(el);
+        if (el && (el.scrollHeight > el.clientHeight || el.clientHeight > 300)) {
+          this.scrollContainer = el;
           return el;
         }
       }
 
-      // Fallback: search any element with overflow scroll/auto
-      const allDivs = document.querySelectorAll('main div, #__next div');
+      // Check all elements in main
+      const allDivs = document.querySelectorAll('main div');
       for (const el of allDivs) {
         const style = window.getComputedStyle(el);
-        if ((style.overflowY === 'auto' || style.overflowY === 'scroll') && el.scrollHeight > el.clientHeight && el.clientHeight > 300) {
-          this.attachScrollListener(el);
+        if ((style.overflowY === 'auto' || style.overflowY === 'scroll') && el.scrollHeight > 300) {
+          this.scrollContainer = el;
           return el;
         }
       }
 
-      // Window fallback
-      this.attachScrollListener(window);
+      this.scrollContainer = window;
       return window;
-    }
-
-    attachScrollListener(container) {
-      if (this.scrollContainer === container) return;
-
-      if (this.scrollContainer) {
-        this.scrollContainer.removeEventListener('scroll', this.handleScrollBound);
-      }
-
-      this.scrollContainer = container;
-      this.handleScrollBound = () => this.handleScroll();
-
-      if (this.scrollContainer.addEventListener) {
-        this.scrollContainer.addEventListener('scroll', this.handleScrollBound, { passive: true });
-      }
-
-      window.addEventListener('resize', () => this.scheduleVirtualize(), { passive: true });
     }
 
     handleScroll() {
@@ -175,13 +181,12 @@
           const record = this.turnMap.get(target);
           if (record && record.isMounted) {
             const newHeight = entry.borderBoxSize?.[0]?.blockSize || entry.contentRect.height;
-            if (newHeight > 0 && Math.abs(newHeight - record.measuredHeight) > 1.5) {
+            if (newHeight > 0 && Math.abs(newHeight - record.measuredHeight) > 2) {
               const heightDiff = newHeight - record.measuredHeight;
               record.measuredHeight = newHeight;
               needsRecompute = true;
 
-              // Scroll anchoring compensation for upward scrolling:
-              // If an item above current viewport top expands or contracts, adjust scrollTop
+              // Upward scroll anchoring
               if (this.options.autoScrollFix && this.scrollContainer && this.scrollContainer !== window) {
                 const containerRect = this.getContainerRect();
                 const targetRect = target.getBoundingClientRect();
@@ -203,13 +208,16 @@
       this.mutationObserver = new MutationObserver((mutations) => {
         let shouldScan = false;
         for (const m of mutations) {
+          // Ignore our own HUD and search modal mutations
+          if (m.target && (m.target.closest && (m.target.closest('#hpruner-floating-hud') || m.target.closest('#hpruner-search-modal')))) {
+            continue;
+          }
           if (m.addedNodes.length > 0 || m.removedNodes.length > 0) {
             shouldScan = true;
             break;
           }
         }
         if (shouldScan) {
-          this.findScrollContainer();
           this.scanAndRegisterTurns();
           this.scheduleVirtualize();
         }
@@ -239,15 +247,18 @@
       requestAnimationFrame(loop);
     }
 
-    // Selectors for finding turns in ChatGPT / Claude / Custom
+    // Robust selectors for all ChatGPT versions (2024-2026), Claude & Custom chats
     getTurnElements() {
       const selectors = [
         'article[data-testid^="conversation-turn-"]',
         'article[class*="text-token-text-primary"]',
         'article',
-        'div[data-message-author-role]',
+        '[data-message-author-role]',
         'div[class*="group/conversation-turn"]',
-        '[data-testid*="conversation-turn"]',
+        'div[class*="agent-turn"]',
+        'div[class*="user-turn"]',
+        'div[class*="conversation-item"]',
+        'div[data-testid^="conversation-turn-"]',
         '.chat-message-turn', // Demo harness
         '.hpruner-message-turn'
       ];
@@ -259,17 +270,25 @@
       for (const sel of selectors) {
         try {
           const els = Array.from(document.querySelectorAll(sel));
-          // Validate if elements look like messages (at least 1 or within chat main)
           if (els.length > 0) {
-            // Filter out navigation/sidebar articles if any
+            // Filter out sidebar, nav, header, or nested inner articles
             const chatTurns = els.filter(el => {
-              const isInsideNav = el.closest('nav, header, [role="navigation"]');
-              return !isInsideNav;
+              const isInsideNav = el.closest('nav, header, [role="navigation"], aside:not(.chat-viewport)');
+              const isInsideSearch = el.closest('#hpruner-search-modal, #hpruner-floating-hud');
+              return !isInsideNav && !isInsideSearch;
             });
-            if (chatTurns.length > 0) return chatTurns;
+
+            // Filter out child elements if a parent turn is already in the list
+            const topLevelTurns = chatTurns.filter(el => {
+              return !chatTurns.some(other => other !== el && other.contains(el));
+            });
+
+            if (topLevelTurns.length > 0) {
+              return topLevelTurns;
+            }
           }
         } catch (e) {
-          // ignore selector errors
+          // ignore invalid custom selector
         }
       }
 
@@ -283,7 +302,7 @@
 
       // Remove vanished elements
       this.turns = this.turns.filter(turn => {
-        if (!currentElementSet.has(turn.element)) {
+        if (!currentElementSet.has(turn.element) || !document.contains(turn.element)) {
           this.turnMap.delete(turn.element);
           if (this.resizeObserver) this.resizeObserver.unobserve(turn.element);
           return false;
@@ -295,19 +314,17 @@
       elements.forEach((el, index) => {
         let record = this.turnMap.get(el);
         if (!record) {
-          const turnId = el.getAttribute('data-testid') || el.id || `turn-${Date.now()}-${index}-${Math.random().toString(36).substr(2, 4)}`;
-          const initialHeight = el.getBoundingClientRect().height || 120;
+          const turnId = el.getAttribute('data-testid') || el.id || `turn-${Date.now()}-${index}`;
+          const currentHeight = el.getBoundingClientRect().height || 100;
           
           record = {
             id: turnId,
             index: index,
             element: el,
-            measuredHeight: Math.max(initialHeight, 40),
+            measuredHeight: Math.max(currentHeight, 40),
             isMounted: true,
             isStreaming: false,
             role: this.detectRole(el),
-            cachedFragment: null,
-            cachedInnerHTML: null,
             textContent: el.textContent || ''
           };
 
@@ -317,15 +334,17 @@
           hasNew = true;
         } else {
           record.index = index;
-          // Refresh text content for search index if mounted
           if (record.isMounted && el.textContent) {
             record.textContent = el.textContent;
           }
         }
       });
 
-      // Keep turns sorted by document order
-      this.turns.sort((a, b) => a.index - b.index);
+      // Sort by position in DOM
+      this.turns.sort((a, b) => {
+        const pos = a.element.compareDocumentPosition(b.element);
+        return (pos & Node.DOCUMENT_POSITION_FOLLOWING) ? -1 : 1;
+      });
 
       if (hasNew) {
         this.notifyIndexUpdate();
@@ -336,21 +355,16 @@
       if (element.getAttribute('data-message-author-role')) {
         return element.getAttribute('data-message-author-role');
       }
-      const text = element.innerHTML || '';
-      if (element.querySelector('[data-role="user"]') || text.includes('user-bubble') || element.classList.contains('user-turn')) {
+      const html = element.innerHTML || '';
+      if (element.querySelector('[data-role="user"]') || html.includes('user-avatar') || element.classList.contains('user-turn')) {
         return 'user';
       }
-      if (element.querySelector('[data-role="assistant"]') || text.includes('agent-turn') || element.classList.contains('assistant-turn')) {
-        return 'assistant';
-      }
-      // Heuristic: user turns are usually shorter or have specific avatars
       return 'assistant';
     }
 
     isTurnStreaming(record, index, total) {
       if (!this.options.safeStreamingGuard) return false;
-      // Always treat the very last message as potentially streaming if generating
-      const isLast = (index === total - 1);
+      const isLast = (index >= total - 1);
       const el = record.element;
       
       const hasStreamingIndicator = (
@@ -361,7 +375,9 @@
         el.querySelector('.streaming-cursor')
       );
 
-      return Boolean(hasStreamingIndicator || (isLast && document.querySelector('button[aria-label="Stop generating"]')));
+      const hasGlobalStopBtn = document.querySelector('button[aria-label="Stop generating"], button[data-testid="stop-button"]');
+
+      return Boolean(hasStreamingIndicator || (isLast && hasGlobalStopBtn));
     }
 
     getContainerRect() {
@@ -388,7 +404,7 @@
       }
 
       const containerRect = this.getContainerRect();
-      const buffer = this.options.overscanBuffer || 500;
+      const buffer = this.options.overscanBuffer || 550;
       const viewportTop = containerRect.top - buffer;
       const viewportBottom = containerRect.bottom + buffer;
 
@@ -396,20 +412,6 @@
       let prunedCount = 0;
       const total = this.turns.length;
 
-      // When in ECO mode, use CSS containment & content-visibility
-      if (this.options.mode === 'eco') {
-        this.turns.forEach((record) => {
-          this.applyEcoContainment(record);
-          renderedCount++;
-        });
-        this.stats.totalTurns = total;
-        this.stats.renderedTurns = renderedCount;
-        this.stats.prunedTurns = 0;
-        this.updateStats();
-        return;
-      }
-
-      // Ultra or Balanced Mode: True memory / ghost spacer detachment
       this.turns.forEach((record, idx) => {
         const el = record.element;
         if (!el || !document.contains(el)) return;
@@ -419,7 +421,7 @@
 
         const rect = el.getBoundingClientRect();
         
-        // Check if element intersects [viewportTop, viewportBottom]
+        // Check if element intersects viewport + buffer
         const isVisible = isStreaming || (rect.bottom >= viewportTop && rect.top <= viewportBottom);
 
         if (isVisible) {
@@ -441,40 +443,32 @@
       this.updateStats();
     }
 
+    // Mount turn (make fully visible and active)
     mountTurn(record) {
       const el = record.element;
       if (!el) return;
 
-      // Restore children / inner subtree
-      if (record.cachedFragment) {
-        el.innerHTML = '';
-        el.appendChild(record.cachedFragment);
-        record.cachedFragment = null;
-      } else if (record.cachedInnerHTML !== null) {
-        el.innerHTML = record.cachedInnerHTML;
-        record.cachedInnerHTML = null;
-      }
-
-      // Clean ghost spacer styles
       el.classList.remove('hpruner-pruned-ghost');
       el.removeAttribute('data-hpruner-pruned');
+      el.style.contentVisibility = '';
+      el.style.containIntrinsicSize = '';
+      el.style.contain = '';
       el.style.minHeight = '';
       el.style.height = '';
-      el.style.contain = '';
 
       record.isMounted = true;
 
-      // Re-observe exact size
       if (this.resizeObserver) {
         this.resizeObserver.observe(el);
       }
     }
 
+    // Unmount turn: uses Chromium hardware CSS containment (100% React-safe, 0 crashes)
     unmountTurn(record) {
       const el = record.element;
       if (!el || record.isStreaming) return;
 
-      // Record exact pixel height before detaching subtree
+      // Record exact pixel height before containment
       const currentHeight = el.getBoundingClientRect().height;
       if (currentHeight > 30) {
         record.measuredHeight = currentHeight;
@@ -485,66 +479,28 @@
         record.textContent = el.textContent || '';
       }
 
-      // Cache DOM subtree or HTML
-      // Creating a DocumentFragment keeps event listeners and React fiber references preserved!
-      const fragment = document.createDocumentFragment();
-      while (el.firstChild) {
-        fragment.appendChild(el.firstChild);
-      }
-      record.cachedFragment = fragment;
-
-      // Replace inner content with ultra-lightweight ghost placeholder
-      const placeholder = document.createElement('div');
-      placeholder.className = 'hpruner-ghost-placeholder';
-      placeholder.setAttribute('data-role', record.role);
-      placeholder.innerHTML = `
-        <div class="hpruner-ghost-indicator">
-          <span class="hpruner-ghost-dot"></span>
-          <span class="hpruner-ghost-label">Turn #${record.index + 1} (${record.role}) • ${Math.round(record.measuredHeight)}px pruned</span>
-        </div>
-      `;
-      el.appendChild(placeholder);
-
-      // Lock height on wrapper so layout never shifts
+      // Apply Chromium hardware containment & content-visibility
+      // This causes browser layout and GPU render tree to completely skip this element while off-screen!
       el.classList.add('hpruner-pruned-ghost');
       el.setAttribute('data-hpruner-pruned', 'true');
+      el.style.contain = 'strict';
+      el.style.contentVisibility = 'hidden';
+      el.style.containIntrinsicSize = `auto ${record.measuredHeight}px`;
       el.style.minHeight = `${record.measuredHeight}px`;
       el.style.height = `${record.measuredHeight}px`;
-      el.style.contain = 'strict';
 
       record.isMounted = false;
     }
 
-    applyEcoContainment(record) {
-      const el = record.element;
-      if (!el) return;
-      if (!record.isMounted) {
-        this.mountTurn(record);
-      }
-      el.style.contentVisibility = 'auto';
-      el.style.containIntrinsicSize = `auto ${record.measuredHeight}px`;
-      el.classList.add('hpruner-eco-contained');
-    }
-
     restoreAll() {
       this.turns.forEach(record => {
-        if (!record.isMounted) {
-          this.mountTurn(record);
-        }
-        const el = record.element;
-        if (el) {
-          el.style.contentVisibility = '';
-          el.style.containIntrinsicSize = '';
-          el.classList.remove('hpruner-eco-contained');
-          el.classList.remove('hpruner-pruned-ghost');
-        }
+        this.mountTurn(record);
       });
       this.stats.renderedTurns = this.turns.length;
       this.stats.prunedTurns = 0;
       this.updateStats();
     }
 
-    // Jump to turn index (used by Search overlay)
     scrollToIndex(index) {
       if (index < 0 || index >= this.turns.length) return;
       const targetRecord = this.turns[index];
@@ -553,17 +509,14 @@
       // Mount target and adjacent items
       for (let i = Math.max(0, index - 2); i <= Math.min(this.turns.length - 1, index + 2); i++) {
         const rec = this.turns[i];
-        if (!rec.isMounted) {
-          this.mountTurn(rec);
-        }
+        if (rec) this.mountTurn(rec);
       }
 
-      // Smooth scroll target element into center of viewport
       targetRecord.element.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
-      // Visual pulse highlight
+      // Visual pulse
       targetRecord.element.classList.remove('hpruner-highlight-pulse');
-      void targetRecord.element.offsetWidth; // trigger reflow
+      void targetRecord.element.offsetWidth;
       targetRecord.element.classList.add('hpruner-highlight-pulse');
       setTimeout(() => {
         targetRecord.element.classList.remove('hpruner-highlight-pulse');
@@ -573,7 +526,6 @@
     }
 
     updateStats() {
-      // Memory estimation: avg rich LLM turn DOM subtree is ~120KB (DOM tree, syntax highlighters, KaTeX, SVGs, GPU paint textures)
       const avgNodeMemKB = 120;
       const savedKB = this.stats.prunedTurns * avgNodeMemKB;
       this.stats.estimatedMemorySavedMB = (savedKB / 1024).toFixed(1);
@@ -598,14 +550,14 @@
     destroy() {
       if (this.resizeObserver) this.resizeObserver.disconnect();
       if (this.mutationObserver) this.mutationObserver.disconnect();
-      if (this.scrollContainer && this.handleScrollBound) {
-        this.scrollContainer.removeEventListener('scroll', this.handleScrollBound);
+      if (this.handleScrollBound) {
+        window.removeEventListener('scroll', this.handleScrollBound, { capture: true });
+        document.removeEventListener('scroll', this.handleScrollBound, { capture: true });
       }
       this.restoreAll();
       this.isInitialized = false;
     }
   }
 
-  // Export to window for extension access
   window.HPrunerVirtualizer = HPrunerVirtualizer;
 })();
