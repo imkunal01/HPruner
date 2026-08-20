@@ -1,4 +1,4 @@
-// content/virtualizer.js - Production-Grade ChatGPT & Chat DOM Virtualizer
+// content/virtualizer.js - Production-Grade ChatGPT & Chat DOM Virtualizer with Progressive Reader Mode
 (function () {
   'use strict';
 
@@ -6,11 +6,12 @@
     constructor(options = {}) {
       this.options = Object.assign({
         enabled: true,
-        mode: 'balanced', // 'ultra' (250px), 'balanced' (550px), 'eco' (800px), 'off'
-        overscanBuffer: 550,
+        mode: 'progressive', // 'progressive' (Slow/smooth background hydration), 'balanced' (550px), 'ultra' (250px), 'eco', 'off'
+        overscanBuffer: 600,
         safeStreamingGuard: true,
         autoScrollFix: true,
-        customSelectors: ''
+        customSelectors: '',
+        staggerDelayMs: 45 // Delay between progressive mounts
       }, options);
 
       this.isInitialized = false;
@@ -24,6 +25,12 @@
       this.lastUrl = window.location.href;
       this.isScrolling = false;
       this.scrollTimeout = null;
+
+      // Progressive Hydration Queue
+      this.hydrationQueue = [];
+      this.hydrationTimer = null;
+      this.isHydrating = false;
+      this.idlePrehydrateTimer = null;
 
       // Stats
       this.stats = {
@@ -62,7 +69,7 @@
       console.log('[HPruner] Initial turns detected:', this.turns.length, '| Mode:', this.options.mode);
     }
 
-    // Capture-phase scroll listener catches all scroll events on the window, document, or nested divs
+    // Capture-phase scroll listener catches all scroll events on window, document, or nested divs
     setupGlobalScrollCapture() {
       this.handleScrollBound = () => this.handleScroll();
       window.addEventListener('scroll', this.handleScrollBound, { passive: true, capture: true });
@@ -73,13 +80,17 @@
     setOptions(newOptions) {
       this.options = Object.assign(this.options, newOptions);
 
-      if (this.options.mode === 'ultra') {
+      if (this.options.mode === 'progressive') {
+        this.options.overscanBuffer = 650;
+      } else if (this.options.mode === 'ultra') {
         this.options.overscanBuffer = 250;
       } else if (this.options.mode === 'balanced') {
         this.options.overscanBuffer = 550;
       } else if (this.options.mode === 'eco') {
         this.options.overscanBuffer = 850;
       }
+
+      this.stopHydrationQueue();
 
       if (!this.options.enabled || this.options.mode === 'off') {
         this.restoreAll();
@@ -101,7 +112,6 @@
     }
 
     startPeriodicScan() {
-      // Continuous scanner ensures dynamic turns loaded via async API in ChatGPT are captured
       this.scanInterval = setInterval(() => {
         if (this.options.enabled && this.options.mode !== 'off') {
           const prevCount = this.turns.length;
@@ -114,7 +124,6 @@
     }
 
     startRouteWatcher() {
-      // Monitor SPA URL navigation in ChatGPT / Next.js
       setInterval(() => {
         if (window.location.href !== this.lastUrl) {
           console.log('[HPruner] SPA Navigation detected:', this.lastUrl, '->', window.location.href);
@@ -127,6 +136,7 @@
     }
 
     resetForNewConversation() {
+      this.stopHydrationQueue();
       this.turns = [];
       this.turnMap.clear();
       this.findScrollContainer();
@@ -134,7 +144,6 @@
       this.scheduleVirtualize();
     }
 
-    // Identifies ChatGPT / LLM chat scroll container
     findScrollContainer() {
       const candidates = [
         document.querySelector('div[class*="react-scroll-to-bottom"]'),
@@ -142,7 +151,7 @@
         document.querySelector('main div[class*="overflow-y-auto"]'),
         document.querySelector('div[class*="overflow-y-auto"]'),
         document.querySelector('main[class*="overflow-y-auto"]'),
-        document.querySelector('div[id="chat-scroll-container"]'), // Demo harness
+        document.querySelector('div[id="chat-scroll-container"]'),
         document.querySelector('main'),
         document.querySelector('#__next')
       ];
@@ -170,9 +179,20 @@
     handleScroll() {
       this.isScrolling = true;
       clearTimeout(this.scrollTimeout);
+      clearTimeout(this.idlePrehydrateTimer);
+
+      // Pause progressive queue during fast scroll to ensure 60 FPS
+      if (this.options.mode === 'progressive') {
+        this.stopHydrationQueue();
+      }
+
       this.scrollTimeout = setTimeout(() => {
         this.isScrolling = false;
-      }, 120);
+        // When scrolling stops and user is reading, start gentle idle pre-hydration
+        if (this.options.mode === 'progressive') {
+          this.scheduleIdlePrehydration();
+        }
+      }, 140);
 
       this.scheduleVirtualize();
     }
@@ -198,7 +218,6 @@
               record.measuredHeight = newHeight;
               needsRecompute = true;
 
-              // Upward scroll anchoring compensation
               if (this.options.autoScrollFix && this.scrollContainer && this.scrollContainer !== window) {
                 const containerRect = this.getContainerRect();
                 const targetRect = target.getBoundingClientRect();
@@ -258,7 +277,6 @@
       requestAnimationFrame(loop);
     }
 
-    // Comprehensive turn selector covering all ChatGPT revisions (2023-2026), Claude, and custom chats
     getTurnElements() {
       const selectors = [
         'article',
@@ -270,7 +288,7 @@
         'div[class*="user-turn"]',
         'div[class*="conversation-item"]',
         '[data-message-id]',
-        '.chat-message-turn', // Demo harness
+        '.chat-message-turn',
         '.hpruner-message-turn'
       ];
 
@@ -282,14 +300,12 @@
         try {
           const els = Array.from(document.querySelectorAll(sel));
           if (els.length > 0) {
-            // Filter out navigation, sidebar, or extension UI
             const chatTurns = els.filter(el => {
               const isInsideNav = el.closest('nav, header, [role="navigation"], aside:not(.chat-viewport)');
               const isInsideExtension = el.closest('#hpruner-search-modal, #hpruner-floating-hud');
               return !isInsideNav && !isInsideExtension;
             });
 
-            // Keep top-level turn elements (remove nested matches)
             const topLevelTurns = chatTurns.filter(el => {
               return !chatTurns.some(other => other !== el && other.contains(el));
             });
@@ -298,9 +314,7 @@
               return topLevelTurns;
             }
           }
-        } catch (e) {
-          // ignore selector errors
-        }
+        } catch (e) {}
       }
 
       return [];
@@ -311,7 +325,6 @@
       let hasNew = false;
       const currentElementSet = new Set(elements);
 
-      // Remove vanished elements
       this.turns = this.turns.filter(turn => {
         if (!currentElementSet.has(turn.element) || !document.contains(turn.element)) {
           this.turnMap.delete(turn.element);
@@ -321,7 +334,6 @@
         return true;
       });
 
-      // Register new elements
       elements.forEach((el, index) => {
         let record = this.turnMap.get(el);
         if (!record) {
@@ -351,7 +363,6 @@
         }
       });
 
-      // Sort by position in DOM
       this.turns.sort((a, b) => {
         const pos = a.element.compareDocumentPosition(b.element);
         return (pos & Node.DOCUMENT_POSITION_FOLLOWING) ? -1 : 1;
@@ -415,13 +426,21 @@
       }
 
       const containerRect = this.getContainerRect();
-      const buffer = this.options.overscanBuffer || 550;
-      const viewportTop = containerRect.top - buffer;
-      const viewportBottom = containerRect.bottom + buffer;
+      const buffer = this.options.overscanBuffer || 600;
+      
+      // Strict physical screen viewport (what user is reading right now)
+      const screenTop = containerRect.top;
+      const screenBottom = containerRect.bottom;
+      
+      // Extended overscan buffer boundary
+      const bufferTop = containerRect.top - buffer;
+      const bufferBottom = containerRect.bottom + buffer;
 
       let renderedCount = 0;
       let prunedCount = 0;
       const total = this.turns.length;
+
+      const progressiveQueue = [];
 
       this.turns.forEach((record, idx) => {
         const el = record.element;
@@ -431,16 +450,37 @@
         record.isStreaming = isStreaming;
 
         const rect = el.getBoundingClientRect();
-        
-        // Check if element intersects [viewportTop, viewportBottom]
-        const isVisible = isStreaming || (rect.bottom >= viewportTop && rect.top <= viewportBottom);
 
-        if (isVisible) {
+        // 1. Direct on-screen visible items (Priority 1: Immediate Mount)
+        const isOnScreen = isStreaming || (rect.bottom >= screenTop && rect.top <= screenBottom);
+        
+        // 2. In overscan buffer area (Priority 2: Progressive / Smooth Mount)
+        const isInBuffer = (rect.bottom >= bufferTop && rect.top <= bufferBottom);
+
+        if (isOnScreen) {
           if (!record.isMounted) {
             this.mountTurn(record);
           }
           renderedCount++;
+        } else if (isInBuffer) {
+          if (this.options.mode === 'progressive') {
+            if (!record.isMounted) {
+              // Add to progressive queue to hydrate slowly one-by-one
+              const distFromCenter = Math.abs((rect.top + rect.bottom) / 2 - (screenTop + screenBottom) / 2);
+              progressiveQueue.push({ record, dist: distFromCenter });
+              prunedCount++;
+            } else {
+              renderedCount++;
+            }
+          } else {
+            // Balanced or Ultra mode: Immediate buffer mount
+            if (!record.isMounted) {
+              this.mountTurn(record);
+            }
+            renderedCount++;
+          }
         } else {
+          // Off-screen outside buffer: Unmount smoothly
           if (record.isMounted) {
             this.unmountTurn(record);
           }
@@ -448,13 +488,88 @@
         }
       });
 
+      // In Progressive mode, start slowly hydrating adjacent turns in the background
+      if (this.options.mode === 'progressive' && progressiveQueue.length > 0) {
+        // Sort queue so nearest items to current viewport hydrate first
+        progressiveQueue.sort((a, b) => a.dist - b.dist);
+        this.enqueueProgressiveHydration(progressiveQueue.map(item => item.record));
+      }
+
       this.stats.totalTurns = total;
       this.stats.renderedTurns = renderedCount;
       this.stats.prunedTurns = prunedCount;
       this.updateStats();
     }
 
-    mountTurn(record) {
+    // Progressive background hydration: mounts 1 turn at a time with smooth micro-delays
+    enqueueProgressiveHydration(records) {
+      this.hydrationQueue = records;
+      if (this.isHydrating) return;
+      this.processNextHydrationItem();
+    }
+
+    processNextHydrationItem() {
+      if (this.hydrationQueue.length === 0 || this.isScrolling) {
+        this.isHydrating = false;
+        return;
+      }
+
+      this.isHydrating = true;
+      const record = this.hydrationQueue.shift();
+
+      if (record && !record.isMounted && document.contains(record.element)) {
+        this.mountTurn(record, true); // true = smooth subtle fade
+        this.stats.renderedTurns++;
+        this.stats.prunedTurns = Math.max(0, this.stats.prunedTurns - 1);
+        this.updateStats();
+      }
+
+      // Schedule next item gently via requestIdleCallback / setTimeout
+      const delay = this.options.staggerDelayMs || 45;
+      this.hydrationTimer = setTimeout(() => {
+        if ('requestIdleCallback' in window) {
+          window.requestIdleCallback(() => this.processNextHydrationItem(), { timeout: 80 });
+        } else {
+          this.processNextHydrationItem();
+        }
+      }, delay);
+    }
+
+    stopHydrationQueue() {
+      clearTimeout(this.hydrationTimer);
+      this.hydrationQueue = [];
+      this.isHydrating = false;
+    }
+
+    // When the user is stationary/reading for > 300ms, slowly pre-hydrate nearby items in the background
+    scheduleIdlePrehydration() {
+      this.idlePrehydrateTimer = setTimeout(() => {
+        if (this.isScrolling || this.options.mode !== 'progressive') return;
+
+        const containerRect = this.getContainerRect();
+        const screenTop = containerRect.top;
+        const screenBottom = containerRect.bottom;
+
+        // Find nearest unmounted turns within reading reach
+        const candidates = [];
+        this.turns.forEach(record => {
+          if (!record.isMounted && document.contains(record.element)) {
+            const rect = record.element.getBoundingClientRect();
+            const dist = Math.abs((rect.top + rect.bottom) / 2 - (screenTop + screenBottom) / 2);
+            if (dist < 1200) { // within 2 pages of reading
+              candidates.push({ record, dist });
+            }
+          }
+        });
+
+        if (candidates.length > 0) {
+          candidates.sort((a, b) => a.dist - b.dist);
+          this.enqueueProgressiveHydration(candidates.slice(0, 4).map(c => c.record));
+        }
+      }, 300);
+    }
+
+    mountTurn(record, smooth = false) {
       const el = record.element;
       if (!el) return;
 
@@ -465,6 +580,11 @@
       el.style.removeProperty('min-height');
       el.style.removeProperty('height');
       el.style.removeProperty('width');
+
+      if (smooth) {
+        el.classList.add('hpruner-smooth-fade');
+        setTimeout(() => el.classList.remove('hpruner-smooth-fade'), 250);
+      }
 
       record.isMounted = true;
 
@@ -486,7 +606,6 @@
         record.textContent = el.textContent || '';
       }
 
-      // Hardware CSS Containment & Virtualization (100% React-safe)
       el.classList.add('hpruner-pruned-ghost');
       el.setAttribute('data-hpruner-pruned', 'true');
       el.style.setProperty('content-visibility', 'hidden', 'important');
@@ -499,6 +618,7 @@
     }
 
     restoreAll() {
+      this.stopHydrationQueue();
       this.turns.forEach(record => {
         this.mountTurn(record);
       });
@@ -552,6 +672,8 @@
     }
 
     destroy() {
+      this.stopHydrationQueue();
+      clearTimeout(this.idlePrehydrateTimer);
       if (this.scanInterval) clearInterval(this.scanInterval);
       if (this.resizeObserver) this.resizeObserver.disconnect();
       if (this.mutationObserver) this.mutationObserver.disconnect();

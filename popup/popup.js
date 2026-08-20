@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   let activeTabId = null;
   let currentSettings = {
     enabled: true,
-    mode: 'balanced',
+    mode: 'progressive',
     safeStreamingGuard: true,
     showHud: true,
     autoScrollFix: true

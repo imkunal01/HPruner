@@ -76,21 +76,25 @@
       <div class="panel">
         <div class="panel-title">VIRTUALIZATION ENGINE</div>
         <div class="engine-toggle-group">
-          <button class="engine-btn" data-mode="off" id="mode-off-btn">
-            <span class="btn-head">Full DOM (No Pruning)</span>
-            <span class="btn-sub">Renders all 100,000+ nodes (lags)</span>
+          <button class="engine-btn active" data-mode="progressive" id="mode-progressive-btn">
+            <span class="btn-head">📖 Smooth Reader (Progressive)</span>
+            <span class="btn-sub">Renders visible page; slowly streams rest in background</span>
           </button>
-          <button class="engine-btn active" data-mode="balanced" id="mode-virtual-btn">
-            <span class="btn-head">⚡ HPruner Virtualized</span>
-            <span class="btn-sub">Ghost spacing + unmounting (60 FPS)</span>
+          <button class="engine-btn" data-mode="balanced" id="mode-virtual-btn">
+            <span class="btn-head">⚡ Balanced Virtualizer</span>
+            <span class="btn-sub">550px buffer • Butter smooth</span>
           </button>
           <button class="engine-btn" data-mode="ultra" id="mode-ultra-btn">
             <span class="btn-head">🔥 Ultra Prune Mode</span>
-            <span class="btn-sub">200px aggressive buffer</span>
+            <span class="btn-sub">250px aggressive buffer • Max RAM</span>
           </button>
           <button class="engine-btn" data-mode="eco" id="mode-eco-btn">
             <span class="btn-head">🍃 CSS Containment</span>
             <span class="btn-sub">content-visibility: auto</span>
+          </button>
+          <button class="engine-btn" data-mode="off" id="mode-off-btn">
+            <span class="btn-head">⏸️ Full DOM (No Pruning)</span>
+            <span class="btn-sub">Renders all 100,000+ nodes (dumps all at once)</span>
           </button>
         </div>
       </div>

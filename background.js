@@ -1,7 +1,7 @@
 // background.js - HPruner Service Worker
 const DEFAULT_SETTINGS = {
   enabled: true,
-  mode: 'balanced', // 'ultra', 'balanced', 'eco', 'off'
+  mode: 'progressive', // 'progressive' (Smooth Lazy Reader), 'balanced', 'ultra', 'eco', 'off'
   overscanBuffer: 500, // px above and below viewport
   ghostPlaceholderType: 'spacer', // 'spacer' (full detachment with ghost height) or 'contained' (CSS content-visibility)
   safeStreamingGuard: true, // Never prune active streaming assistant turns

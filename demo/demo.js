@@ -149,8 +149,8 @@
   function setupVirtualizer() {
     virtualizer = new window.HPrunerVirtualizer({
       enabled: true,
-      mode: 'balanced',
-      overscanBuffer: 550,
+      mode: 'progressive',
+      overscanBuffer: 650,
       safeStreamingGuard: true,
       autoScrollFix: true
     });

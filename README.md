@@ -15,11 +15,12 @@ It prevents browser tab freezes, memory crashes, and frame drops on massive conv
 * **🛡️ Safe Streaming Guard:** Automatically detects active streaming assistant responses (`[data-is-streaming="true"]`, `.result-streaming`, active generation mutations) and keeps them fully mounted and responsive.
 * **🔍 In-Memory Thread Search (`Ctrl+Shift+F`):** Searches the complete conversation history in memory even when off-screen messages are unmounted from the DOM, with instant jump-to-turn and smooth scroll navigation.
 * **📊 Floating In-Page Performance HUD:** Minimalist draggable glassmorphism pill displaying live scroll FPS, mounted vs. total nodes, and estimated RAM saved.
-* **🎛️ 4 Pruning Modes:**
-  * **Ultra Prune** (250px overscan buffer — maximum memory reduction for 1,000+ message threads)
-  * **Balanced** (550px overscan buffer — buttery smooth 60 FPS scrolling)
-  * **Eco** (CSS `content-visibility: auto` + `contain-intrinsic-size`)
-  * **Off / Passthrough** (Instantly restores full DOM)
+* **🎛️ 5 Pruning & Reading Modes:**
+  * **📖 Smooth Reader (Default / Recommended)**: Instant viewport priority for what you are reading right now, while quietly and slowly hydrating neighboring messages one-by-one in the background (`requestIdleCallback`) for zero-lag reading.
+  * **⚡ Balanced** (550px overscan buffer — buttery smooth 60 FPS scrolling)
+  * **🔥 Ultra Prune** (250px overscan buffer — maximum memory reduction for 1,000+ message threads)
+  * **🍃 Eco** (CSS `content-visibility: auto` + `contain-intrinsic-size`)
+  * **⏸️ Off / Passthrough** (Instantly restores full DOM)
 * **📦 Markdown & JSON Thread Export:** One-click backup of entire conversations with timestamps and role tags.
 * **🧪 Self-Contained 10,000 Message Benchmark Suite:** Includes a standalone test harness (`demo/index.html`) to benchmark performance under extreme loads.
 

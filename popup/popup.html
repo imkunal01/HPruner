@@ -67,13 +67,17 @@
     <section class="config-section">
       <h2 class="section-title">Pruning Engine Mode</h2>
       <div class="mode-selector" id="mode-selector">
+        <button class="mode-btn active featured-mode" data-mode="progressive">
+          <span class="mode-name">📖 Smooth Reader</span>
+          <span class="mode-desc">Slow progressive hydration • Zero lag</span>
+        </button>
+        <button class="mode-btn" data-mode="balanced">
+          <span class="mode-name">🛡️ Balanced</span>
+          <span class="mode-desc">550px overscan buffer</span>
+        </button>
         <button class="mode-btn" data-mode="ultra">
           <span class="mode-name">⚡ Ultra</span>
           <span class="mode-desc">250px buffer • Max RAM</span>
-        </button>
-        <button class="mode-btn active" data-mode="balanced">
-          <span class="mode-name">🛡️ Balanced</span>
-          <span class="mode-desc">550px • Butter smooth</span>
         </button>
         <button class="mode-btn" data-mode="eco">
           <span class="mode-name">🍃 Eco</span>

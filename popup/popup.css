@@ -295,16 +295,16 @@ body {
   border-color: var(--primary);
   color: var(--text-primary);
   box-shadow: 0 0 10px rgba(16, 185, 129, 0.15);
+.mode-btn.featured-mode {
+  grid-column: 1 / -1;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(56, 189, 248, 0.1));
+  border-color: rgba(16, 185, 129, 0.35);
 }
 
-.mode-name {
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.mode-desc {
-  font-size: 9.5px;
-  color: var(--text-muted);
+.mode-btn.featured-mode.active {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(56, 189, 248, 0.18));
+  border-color: var(--primary);
+  box-shadow: 0 0 15px rgba(16, 185, 129, 0.25);
 }
 
 /* Switches & Toggles */

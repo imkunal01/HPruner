@@ -72,6 +72,16 @@
   border-radius: 8px !important;
 }
 
+/* Progressive smooth reader fade-in */
+@keyframes hprunerSmoothFadeIn {
+  from { opacity: 0.2; transform: translateY(2px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.hpruner-smooth-fade {
+  animation: hprunerSmoothFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+}
+
 /* 2. Floating In-Page HUD */
 .hpruner-hud {
   position: fixed !important;
