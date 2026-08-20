@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HPruner - 10,000 Message DOM Virtualization Benchmark & Test Harness</title>
+  <link rel="stylesheet" href="../content/hpruner.css">
+  <link rel="stylesheet" href="demo.css">
+  <!-- Fonts & Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body class="dark-theme">
+  <div class="app-layout">
+    <!-- Benchmark Sidebar Controls -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo">
+          <span class="bolt">⚡</span>
+          <div>
+            <h1>HPruner</h1>
+            <p>Virtualization Benchmark Suite</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Performance Telemetry -->
+      <div class="panel telemetry-panel">
+        <div class="panel-title">LIVE TELEMETRY</div>
+        
+        <div class="telemetry-grid">
+          <div class="telemetry-box">
+            <span class="telemetry-label">SCROLL FPS</span>
+            <span class="telemetry-value fps-val" id="live-fps">60</span>
+            <div class="fps-bar"><div class="fps-bar-fill" id="fps-meter-fill" style="width: 100%;"></div></div>
+          </div>
+          <div class="telemetry-box">
+            <span class="telemetry-label">DOM NODES</span>
+            <span class="telemetry-value" id="live-dom-nodes">0</span>
+            <span class="telemetry-sub" id="live-dom-sub">in document tree</span>
+          </div>
+          <div class="telemetry-box">
+            <span class="telemetry-label">MOUNTED TURNS</span>
+            <span class="telemetry-value" id="live-mounted-turns">0 / 0</span>
+            <span class="telemetry-sub" id="live-pruned-pct">0% pruned</span>
+          </div>
+          <div class="telemetry-box">
+            <span class="telemetry-label">EST. RAM SAVED</span>
+            <span class="telemetry-value highlight-green" id="live-ram-saved">0.0 MB</span>
+            <span class="telemetry-sub">heap & textures</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Generation Controls -->
+      <div class="panel">
+        <div class="panel-title">DATASET GENERATOR</div>
+        <div class="form-group">
+          <label for="msg-count-select">Thread Message Count</label>
+          <select id="msg-count-select" class="custom-select">
+            <option value="50">50 Messages (Small)</option>
+            <option value="250">250 Messages (Medium)</option>
+            <option value="1000" selected>1,000 Messages (Heavy)</option>
+            <option value="3000">3,000 Messages (Extreme)</option>
+            <option value="10000">10,000 Messages (Browser Meltdown test)</option>
+          </select>
+        </div>
+        <button id="btn-generate" class="btn btn-accent">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+          Generate Dataset
+        </button>
+      </div>
+
+      <!-- Engine Mode Controls -->
+      <div class="panel">
+        <div class="panel-title">VIRTUALIZATION ENGINE</div>
+        <div class="engine-toggle-group">
+          <button class="engine-btn" data-mode="off" id="mode-off-btn">
+            <span class="btn-head">Full DOM (No Pruning)</span>
+            <span class="btn-sub">Renders all 100,000+ nodes (lags)</span>
+          </button>
+          <button class="engine-btn active" data-mode="balanced" id="mode-virtual-btn">
+            <span class="btn-head">⚡ HPruner Virtualized</span>
+            <span class="btn-sub">Ghost spacing + unmounting (60 FPS)</span>
+          </button>
+          <button class="engine-btn" data-mode="ultra" id="mode-ultra-btn">
+            <span class="btn-head">🔥 Ultra Prune Mode</span>
+            <span class="btn-sub">200px aggressive buffer</span>
+          </button>
+          <button class="engine-btn" data-mode="eco" id="mode-eco-btn">
+            <span class="btn-head">🍃 CSS Containment</span>
+            <span class="btn-sub">content-visibility: auto</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Stress Testing & Tools -->
+      <div class="panel">
+        <div class="panel-title">AUTOMATION & ACTIONS</div>
+        <div class="action-grid">
+          <button id="btn-stress-scroll" class="btn btn-secondary">
+            <span>🚀 Stress Auto-Scroll</span>
+          </button>
+          <button id="btn-simulate-stream" class="btn btn-secondary">
+            <span>💬 Simulate Streaming</span>
+          </button>
+          <button id="btn-trigger-search" class="btn btn-secondary">
+            <span>🔍 Test In-Memory Search</span>
+          </button>
+          <button id="btn-scroll-bottom" class="btn btn-secondary">
+            <span>⬇️ Jump to Bottom</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Footer Info -->
+      <div class="sidebar-footer">
+        <p>HPruner Engine Benchmark v1.0</p>
+        <p>Tests variable height rendering, codeblocks, tables & scroll anchoring.</p>
+      </div>
+    </aside>
+
+    <!-- Main Chat Simulation Viewport -->
+    <main class="chat-viewport">
+      <header class="chat-topbar">
+        <div class="chat-title-group">
+          <span class="chat-model-tag">GPT-4.5 / Claude 3.7 Architecture Simulation</span>
+          <h2 id="chat-thread-title">Large Code & Math Thread (1,000 Turns)</h2>
+        </div>
+        <div class="chat-actions">
+          <span class="badge" id="viewport-status">Virtualized Mode Active</span>
+        </div>
+      </header>
+
+      <!-- Scrollable Chat Container -->
+      <div class="chat-scroll-container" id="chat-scroll-container">
+        <div class="chat-content-inner" id="chat-content-inner">
+          <!-- Dynamically populated chat turns -->
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Scripts -->
+  <script src="../content/virtualizer.js"></script>
+  <script src="../content/search.js"></script>
+  <script src="../content/hud.js"></script>
+  <script src="demo.js"></script>
+</body>
+</html>
