@@ -95,7 +95,20 @@
       searchOverlay,
       hud,
       getStats: () => virtualizer.stats,
-      getTurns: () => virtualizer.turns
+      getTurns: () => virtualizer.turns,
+      scan: () => {
+        virtualizer.scanAndRegisterTurns();
+        virtualizer.scheduleVirtualize();
+        return { turns: virtualizer.turns.length, stats: virtualizer.stats };
+      },
+      virtualize: () => {
+        virtualizer.scheduleVirtualize();
+        return virtualizer.stats;
+      },
+      restore: () => {
+        virtualizer.restoreAll();
+        return virtualizer.stats;
+      }
     };
 
     console.log('%c[HPruner] ⚡ Content orchestrator active. Type __HPRUNER__.getStats() to inspect.', 'color: #10b981;');
